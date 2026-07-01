@@ -1,0 +1,161 @@
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:skylark/app/core/values/app_colors.dart';
+import 'package:skylark/app/core/widgets/custom_search_dropdown.dart';
+import 'package:skylark/app/core/widgets/custom_snackbar.dart';
+import 'package:skylark/app/routes/app_routes.dart';
+import 'dashboard_controller.dart';
+import 'widgets/dashboard_drawer.dart';
+
+class DashboardScreen extends GetView<DashboardController> {
+  const DashboardScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final List<Map<String, dynamic>> allMenuItems = [
+      {'icon': Icons.edit_document, 'title': 'Booking Screen', 'subtitle': 'Manage and create new bookings', 'route': AppRoutes.booking, 'menu': 'Booking Screen'},
+      {'icon': Icons.assignment_rounded, 'title': 'PRS', 'subtitle': 'Pickup Request System', 'route': AppRoutes.prs, 'menu': 'PRS'},
+      {'icon': Icons.assignment_turned_in_rounded, 'title': 'PRS Closure', 'subtitle': 'Complete pending pickup requests', 'route': AppRoutes.prsClosure, 'menu': 'PRS Closure'},
+      {'icon': Icons.list_alt_rounded, 'title': 'Stock Update Arrival', 'subtitle': 'View arrival stock update list', 'route': AppRoutes.manifest, 'menu': 'Stock Update Arrival'},
+      {'icon': Icons.local_shipping_rounded, 'title': 'DRS Generation', 'subtitle': 'Generate Delivery Run Sheets', 'route': AppRoutes.drsGeneration, 'menu': 'DRS Generation'},
+      {'icon': Icons.update_rounded, 'title': 'DRS Update', 'subtitle': 'Update Delivery Run Sheets', 'route': AppRoutes.drsUpdate, 'menu': 'DRS Update'},
+      {'icon': Icons.done_all_rounded, 'title': 'DRS Closure', 'subtitle': 'Complete and close delivery run sheets', 'route': AppRoutes.drsClosure, 'menu': 'DRS Closure'},
+      {'icon': Icons.cloud_upload_rounded, 'title': 'POD Upload', 'subtitle': 'Search and upload proof of delivery', 'route': AppRoutes.podUpload, 'menu': 'POD Upload'},
+      {'icon': Icons.payments_rounded, 'title': 'Expense Entry', 'subtitle': 'Branch daily expense entry', 'route': AppRoutes.expense, 'menu': 'Expense Entery'},
+    ];
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FD),
+      drawer: const DashboardDrawer(),
+      appBar: AppBar(
+        backgroundColor: AppColors.primaryBlue,
+        elevation: 0,
+        centerTitle: true,
+        title: const Text(
+          'Dashboard',
+          style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+        ),
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu_rounded, color: Colors.white, size: 28),
+            onPressed: () => Scaffold.of(context).openDrawer(),
+          ),
+        ),
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            const SizedBox(height: 20),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 25),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Select Location",
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.darkBlue),
+                  ),
+                  const SizedBox(height: 8),
+                  Obx(() {
+                    final locationList = controller.locations.map((loc) => "${loc.locName ?? ''} (${loc.locCode ?? ''})").toList();
+
+                    return CustomSearchDropdown(
+                      isLoading: controller.isLoadingLocations.value,
+                      items: locationList,
+                      hintText: "Search & Select Location",
+                      selectedItem: controller.selectedLocation.value != null ? "${controller.selectedLocation.value!.locName} (${controller.selectedLocation.value!.locCode})" : null,
+                      onSelected: (String? value) {
+                        if (value != null) {
+                          final selected = controller.locations.firstWhereOrNull((loc) => "${loc.locName} (${loc.locCode})" == value);
+                          if (selected != null) {
+                            controller.onLocationChanged(selected);
+                          }
+                        }
+                      },
+                    );
+                  }),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            Expanded(
+              child: Obx(() {
+                final visibleItems = allMenuItems.where((item) => controller.hasMenuAccess(item['menu'])).toList();
+                
+                return ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  itemCount: visibleItems.length,
+                  itemBuilder: (context, index) {
+                    final item = visibleItems[index];
+                    final color = index % 2 == 0 ? AppColors.primaryBlue : AppColors.secondaryGreen;
+
+                    return _menuTile(icon: item['icon'], title: item['title'], subtitle: item['subtitle'], color: color, onTap: () => controller.navigateToRoute(item['route']));
+                  },
+                );
+              }),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+
+  Widget _menuTile({required IconData icon, required String title, required String subtitle, required Color color, required VoidCallback onTap}) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 18),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(22),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 5))],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(22),
+            child: Stack(
+              children: [
+                Positioned(right: -15, top: -15, child: Icon(icon, size: 100, color: color.withValues(alpha: 0.03))),
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(18)),
+                        child: Icon(icon, color: Colors.white, size: 28),
+                      ),
+                      const SizedBox(width: 20),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title,
+                              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.darkBlue, letterSpacing: 0.3),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(subtitle, style: TextStyle(fontSize: 12, color: Colors.grey.shade500, height: 1.3)),
+                          ],
+                        ),
+                      ),
+                      // Arrow button
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(color: Colors.grey.shade50, shape: BoxShape.circle),
+                        child: Icon(Icons.chevron_right_rounded, color: color.withValues(alpha: 0.6), size: 20),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

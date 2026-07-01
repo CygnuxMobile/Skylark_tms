@@ -27,3 +27,38 @@ doc/api/
 
 .flutter-plugins
 .flutter-plugins-dependencies
+
+# Android-specific
+.gradle/
+local.properties
+gen/
+**/android/**/generated/
+*.keystore
+*.jks
+**/android/.kotlin/
+
+# iOS-specific
+.generated/
+**/ios/Flutter/App.framework
+**/ios/Flutter/Flutter.framework
+**/ios/Flutter/Flutter.podspec
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/app.flx
+**/ios/Flutter/app.zip
+**/ios/Flutter/flutter_assets
+**/ios/Flutter/flutter_export_environment.sh
+**/ios/ServiceDefinitions.json
+**/ios/Runner/GeneratedPluginRegistrant.h
+**/ios/Runner/GeneratedPluginRegistrant.m
+**/ios/Pods/
+**/ios/.symlinks/
+
+# IDE-specific
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# Logs
+*.log
