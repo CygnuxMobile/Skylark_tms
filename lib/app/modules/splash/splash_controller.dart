@@ -147,6 +147,8 @@ class SplashController extends GetxController {
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () async {
+                      await _storageService.clearStorage();
+
                       final url = Platform.isAndroid
                           ? 'https://play.google.com/store/apps/details?id=com.example.skylark'
                           : 'https://apps.apple.com/app/idYOUR_ID';
