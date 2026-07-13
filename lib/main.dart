@@ -4,6 +4,7 @@ import 'package:skylark/app/core/theme/app_theme.dart';
 import 'package:skylark/app/data/services/api_service.dart';
 import 'package:skylark/app/data/services/connectivity_service.dart';
 import 'package:skylark/app/data/services/storage_service.dart';
+import 'package:skylark/app/data/services/firebase_config_service.dart';
 import 'package:skylark/app/routes/app_pages.dart';
 import 'package:skylark/app/routes/app_routes.dart';
 
@@ -11,6 +12,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Get.putAsync(() => StorageService().init());
+  await Get.putAsync(() => FirebaseConfigService().init());
   Get.put(ApiService());
   await Get.putAsync(() async => ConnectivityService());
   

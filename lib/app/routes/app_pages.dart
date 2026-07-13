@@ -9,6 +9,8 @@ import 'package:skylark/app/modules/login/login_binding.dart';
 import 'package:skylark/app/modules/login/login_screen.dart';
 import 'package:skylark/app/modules/splash/splash_binding.dart';
 import 'package:skylark/app/modules/splash/splash_screen.dart';
+import 'package:skylark/app/modules/registration/registration_binding.dart';
+import 'package:skylark/app/modules/registration/registration_screen.dart';
 import 'package:skylark/app/modules/prs/prs_binding.dart';
 import 'package:skylark/app/modules/prs/prs_screen.dart';
 import 'package:skylark/app/modules/prs_closure/prs_closure_binding.dart';
@@ -44,6 +46,11 @@ class AppPages {
       name: AppRoutes.login,
       page: () => const LoginScreen(),
       binding: LoginBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.registration,
+      page: () => const RegistrationScreen(),
+      binding: RegistrationBinding(),
     ),
     GetPage(
       name: AppRoutes.dashboard,
