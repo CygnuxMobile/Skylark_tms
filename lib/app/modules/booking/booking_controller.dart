@@ -158,6 +158,9 @@ class BookingController extends GetxController {
 
     ever(consigneeType, (value) {
       freightErrorMessage.value = '';
+      if (value == 'Walk-In' && destPinController.text.isNotEmpty) {
+        walkInPincodeController.text = destPinController.text;
+      }
     });
 
     fetchCustomers();
@@ -481,7 +484,18 @@ class BookingController extends GetxController {
                 onDestSelected(locations.firstWhereOrNull((l) => l.pincode == destPin) ?? PincodeModel(pincode: destPin));
               }
 
-              consignorController.text = details['csgnm']?.toString() ?? '';
+              final consignorName = details['csgnm']?.toString() ?? '';
+              consignorController.text = consignorName;
+              
+              if (customers.isNotEmpty && consignorName.isNotEmpty) {
+                final match = customers.firstWhereOrNull(
+                  (c) => c.custName?.toLowerCase() == consignorName.toLowerCase()
+                );
+                if (match != null) {
+                  selectedCustomer.value = match;
+                }
+              }
+
               final consigneeName = details['csgenm']?.toString() ?? '';
               consigneeController.text = consigneeName;
               
@@ -601,12 +615,12 @@ class BookingController extends GetxController {
     if (originPin.length == 6) {
       fetchFromPincodeDetails(originPin);
     }
-    if (originPin.length == 6) {
-      fetchFromPincodeDetails(originPin);
-    }
     if (destPin.length == 6) {
       fetchToPincodeDetails(destPin);
       fetchConsigneesByPincode(destPin);
+      if (consigneeType.value == 'Walk-In') {
+        walkInPincodeController.text = destPin;
+      }
     }
   }
 
@@ -719,6 +733,18 @@ class BookingController extends GetxController {
         return;
       }
 
+      if (showDimensions.value && dimensionsList.isNotEmpty) {
+        final int totalPkgs = int.tryParse(pkgsController.text) ?? 0;
+        final int totalDimPieces = dimensionsList.fold(0, (sum, item) => sum + (item['pieces'] as int? ?? 0));
+        if (totalDimPieces != totalPkgs) {
+          CustomSnackbar.error(
+            title: 'Dimension Error',
+            message: 'Total pieces in dimensions ($totalDimPieces) must equal total PKGS ($totalPkgs)',
+          );
+          return;
+        }
+      }
+
       if (ewayBillErrorMessage.value.isNotEmpty) {
         ewayBillFocus.requestFocus();
         CustomSnackbar.error(
@@ -776,6 +802,27 @@ class BookingController extends GetxController {
   }
 
   void addDimension(double l, double b, double h, int pieces) {
+    final int totalPkgs = int.tryParse(pkgsController.text) ?? 0;
+    if (totalPkgs == 0) {
+      CustomSnackbar.show(
+        title: 'PKGS Required',
+        message: 'Please enter total PKGS first',
+        backgroundColor: Colors.orange,
+      );
+      pkgsFocus.requestFocus();
+      return;
+    }
+
+    final int currentTotalPieces = dimensionsList.fold(0, (sum, item) => sum + (item['pieces'] as int? ?? 0));
+    if (currentTotalPieces + pieces > totalPkgs) {
+      CustomSnackbar.show(
+        title: 'Validation Error',
+        message: 'Total pieces cannot exceed PKGS ($totalPkgs). Remaining: ${totalPkgs - currentTotalPieces}',
+        backgroundColor: Colors.orange,
+      );
+      return;
+    }
+
     dimensionsList.add(<String, dynamic>{
       "voL_L": l,
       "voL_B": b,
@@ -853,6 +900,9 @@ class BookingController extends GetxController {
       destPinController.text = value.pincode ?? '';
       fetchToPincodeDetails(value.pincode ?? '');
       fetchConsigneesByPincode(value.pincode ?? '');
+      if (consigneeType.value == 'Walk-In') {
+        walkInPincodeController.text = value.pincode ?? '';
+      }
     }
   }
 
@@ -999,7 +1049,6 @@ class BookingController extends GetxController {
         dockno: cnoteController.text,
         dockdt: DateTime.now().toIso8601String(),
         manualDockno: cnoteController.text,
-
         ewayBillNo: isEwayBillWise.value ? addedEwayBills.join(',') : ewayBillController.text,
         partYCODE: selectedCustomer.value?.custCode ?? "",
         frompincode: originPinController.text,
@@ -1018,7 +1067,6 @@ class BookingController extends GetxController {
         orgncd: locCode,
         orgNstnm: origin?.orgNstnm ?? "",
         orgnArea: origin?.orgnArea ?? "",
-
         toCity: dest?.toCity ?? "",
         destcd: dest?.destcd ?? "",
         desTstnm: dest?.desTstnm ?? "",
@@ -1046,6 +1094,7 @@ class BookingController extends GetxController {
         invAmt: totalInvAmt.toString(),
         invNo: invNoController.text,
         companyCode: user?.baseCompanyCode ?? "",
+        baseusername: user?.userId
       );
 
       final int totalPkgs = int.tryParse(pkgsController.text) ?? 0;
@@ -1115,7 +1164,7 @@ class BookingController extends GetxController {
         ));
       }
 
-      if (invoices.isNotEmpty && totalPkgs > 0 && !isEwayBillWise.value) {
+      if (invoices.isNotEmpty && totalPkgs > 0 && !isEwayBillWise.value && dimensionsList.isEmpty) {
         int distributedPkgs = (totalPkgs / loopCount).floor() * loopCount;
         int remainder = totalPkgs - distributedPkgs;
         if (remainder > 0) {

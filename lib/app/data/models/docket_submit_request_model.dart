@@ -75,6 +75,7 @@ class Docket {
   String? invAmt;
   String? invNo;
   String? companyCode;
+  String? baseusername;
 
   Docket({
     this.dockno,
@@ -125,6 +126,7 @@ class Docket {
     this.invAmt,
     this.invNo,
     this.companyCode,
+    this.baseusername,
   });
 
   Docket.fromJson(Map<String, dynamic> json) {
@@ -228,6 +230,7 @@ class Docket {
     data['invAmt'] = invAmt;
     data['invNo'] = invNo;
     data['CompanyCode'] = companyCode;
+    data['baseusername'] = baseusername;
     return data;
   }
 }
