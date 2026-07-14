@@ -438,7 +438,7 @@ class BookingScreen extends GetView<BookingController> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildFieldLabel('PKGS'),
+                          _buildFieldLabel('PKGS *'),
                           CustomTextField(
                             controller: controller.pkgsController,
                             focusNode: controller.pkgsFocus,
@@ -454,12 +454,13 @@ class BookingScreen extends GetView<BookingController> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildFieldLabel('Actual Wt'),
+                          _buildFieldLabel('Actual Wt *'),
                           CustomTextField(
                             controller: controller.aWeightController,
                             focusNode: controller.aWeightFocus,
                             hintText: '0.00',
                             keyboardType: TextInputType.number,
+                            validator: (value) => value == null || value.isEmpty ? 'Required' : null,
                           ),
                         ],
                       ),
@@ -468,7 +469,7 @@ class BookingScreen extends GetView<BookingController> {
                 ),
                 const SizedBox(height: 16),
 
-                Obx(() => _buildFieldLabel('Invoice Value${controller.isZeroFreightSubmit.value ? '' : ' *'}')),
+                _buildFieldLabel('Invoice Value *'),
                 Obx(
                   () => CustomTextField(
                     controller: controller.invValueController,
@@ -478,11 +479,11 @@ class BookingScreen extends GetView<BookingController> {
                     readOnly: controller.isFieldsReadOnly.value,
                     prefixIcon: const Icon(Icons.currency_rupee_rounded, color: AppColors.primaryBlue, size: 20),
                     validator: (value) {
-                      if (!controller.isZeroFreightSubmit.value && (value == null || value.isEmpty)) {
+                      if (value == null || value.isEmpty) {
                         return 'Value is required';
                       }
                       if (controller.isEwayBillWise.value && controller.addedEwayBills.isNotEmpty) {
-                        final valCount = value?.split(',').where((s) => s.trim().isNotEmpty).length ?? 0;
+                        final valCount = value.split(',').where((s) => s.trim().isNotEmpty).length;
                         if (valCount != controller.addedEwayBills.length) {
                           return 'Expected ${controller.addedEwayBills.length} values (comma separated)';
                         }
@@ -492,7 +493,7 @@ class BookingScreen extends GetView<BookingController> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                _buildFieldLabel('Invoice Number'),
+                _buildFieldLabel('Invoice Number *'),
                 Obx(
                   () => Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -532,31 +533,26 @@ class BookingScreen extends GetView<BookingController> {
                 ),
                 const SizedBox(height: 16),
 
-                Obx(
-                  () => Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      InkWell(
-                        onTap: () => controller.toggleDimensions(),
-                        borderRadius: BorderRadius.circular(8),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(controller.showDimensions.value ? Icons.remove_circle_outline : Icons.add_circle_outline, color: AppColors.primaryBlue, size: 22),
-                              const SizedBox(width: 8),
-                              Text(
-                                controller.showDimensions.value ? 'HIDE DIMENSIONS' : 'ADD DIMENSIONS',
-                                style: const TextStyle(color: AppColors.primaryBlue, fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 0.5),
-                              ),
-                            ],
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Icon(Icons.straighten_rounded, color: AppColors.primaryBlue, size: 22),
+                          SizedBox(width: 8),
+                          Text(
+                            'DIMENSIONS (Mandatory) *',
+                            style: TextStyle(color: AppColors.primaryBlue, fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 0.5),
                           ),
-                        ),
+                        ],
                       ),
-                      if (controller.showDimensions.value) ...[const SizedBox(height: 16), _buildDimensionSection()],
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildDimensionSection(),
+                  ],
                 ),
 
                 const SizedBox(height: 32),
@@ -710,55 +706,68 @@ class BookingScreen extends GetView<BookingController> {
           );
         }),
         const SizedBox(height: 12),
-        _buildFieldLabel('Enter Dimensions (L x B x H x Piece)'),
+        _buildFieldLabel('Enter Dimensions (L x B x H x Pcs) *'),
         Row(
           children: [
-            _buildSmallDimField('L', controller.lengthController, controller.lengthFocus),
+            _buildSmallDimField('L *', controller.lengthController, controller.lengthFocus),
             const SizedBox(width: 16),
-            _buildSmallDimField('B', controller.breadthController, controller.breadthFocus),
+            _buildSmallDimField('B *', controller.breadthController, controller.breadthFocus),
           ],
         ),
         const SizedBox(height: 12),
         Row(
           children: [
-            _buildSmallDimField('H', controller.heightController, controller.heightFocus),
+            _buildSmallDimField('H *', controller.heightController, controller.heightFocus),
             const SizedBox(width: 16),
-            _buildSmallDimField('Pcs', controller.pieceController, controller.pieceFocus),
+            _buildSmallDimField('Pcs *', controller.pieceController, controller.pieceFocus),
             const SizedBox(width: 16),
-            InkWell(
-              onTap: () {
-                final l = double.tryParse(controller.lengthController.text) ?? 0;
-                final b = double.tryParse(controller.breadthController.text) ?? 0;
-                final h = double.tryParse(controller.heightController.text) ?? 0;
-                final p = int.tryParse(controller.pieceController.text) ?? 0;
+            Obx(() {
+              int currentPcs = 0;
+              for (var dim in controller.dimensionsList) {
+                currentPcs += dim['pieces'] as int? ?? 0;
+              }
+              final totalPkgs = controller.pkgsCount.value;
+              final bool isFull = totalPkgs > 0 && currentPcs >= totalPkgs;
 
-                final totalPkgs = int.tryParse(controller.pkgsController.text) ?? 0;
-                int currentPcs = 0;
-                for (var dim in controller.dimensionsList) {
-                  currentPcs += dim['pieces'] as int? ?? 0;
-                }
+              return InkWell(
+                onTap: isFull
+                    ? null
+                    : () {
+                        final l = double.tryParse(controller.lengthController.text) ?? 0;
+                        final b = double.tryParse(controller.breadthController.text) ?? 0;
+                        final h = double.tryParse(controller.heightController.text) ?? 0;
+                        final p = int.tryParse(controller.pieceController.text) ?? 0;
 
-                if (l > 0 && b > 0 && h > 0 && p > 0) {
-                  if (currentPcs + p > totalPkgs) {
-                    Get.snackbar('Error', 'Total pieces cannot exceed PKGS ($totalPkgs)', snackPosition: SnackPosition.BOTTOM, backgroundColor: Colors.orange, colorText: Colors.white);
-                  } else {
-                    controller.addDimension(l, b, h, p);
-                  }
-                } else {
-                  Get.snackbar('Error', 'Please enter valid dimensions and pieces', snackPosition: SnackPosition.BOTTOM, backgroundColor: Colors.orange, colorText: Colors.white);
-                }
-              },
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                height: 55, // Matching height of CustomTextField
-                width: 55,
-                decoration: BoxDecoration(
-                  color: AppColors.primaryBlue,
-                  borderRadius: BorderRadius.circular(15),
+                        final totalPkgs = controller.pkgsCount.value;
+                        int currentPcs = 0;
+                        for (var dim in controller.dimensionsList) {
+                          currentPcs += dim['pieces'] as int? ?? 0;
+                        }
+
+                        if (l > 0 && b > 0 && h > 0 && p > 0) {
+                          if (currentPcs + p > totalPkgs) {
+                            Get.snackbar('Error', 'Total pieces cannot exceed PKGS ($totalPkgs)',
+                                snackPosition: SnackPosition.BOTTOM, backgroundColor: Colors.orange, colorText: Colors.white);
+                          } else {
+                            controller.addDimension(l, b, h, p);
+                          }
+                        } else {
+                          Get.snackbar('Error', 'Please enter valid dimensions and pieces',
+                              snackPosition: SnackPosition.BOTTOM, backgroundColor: Colors.orange, colorText: Colors.white);
+                        }
+                      },
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  height: 55, // Matching height of CustomTextField
+                  width: 55,
+                  decoration: BoxDecoration(
+                    color: isFull ? Colors.grey.shade400 : AppColors.primaryBlue,
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  child: const Icon(Icons.add, color: Colors.white, size: 24),
                 ),
-                child: const Icon(Icons.add, color: Colors.white, size: 24),
-              ),
-            ),
+              );
+            }),
           ],
         ),
       ],
