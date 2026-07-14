@@ -33,15 +33,17 @@ class LoginController extends GetxController {
         
         final firebaseConfig = Get.find<FirebaseConfigService>();
 
+        // Check if we should block deleted accounts (Managed by delete_account_enabled)
         if (firebaseConfig.isDeleteEnabled.value) {
-          // 0. DELETED ACCOUNT CHECK (For Apple Review)
           if (_storageService.isAccountDeleted(username)) {
             CustomSnackbar.error(message: 'Your account has been deleted.');
             isLoading.value = false;
             return;
           }
+        }
 
-          // 1. FAKE LOGIN CHECK (For Apple Review)
+        // Check for local fake registrations (Managed by registration_enabled)
+        if (firebaseConfig.isRegisterEnabled.value) {
           final localRegs = _storageService.getLocalRegistrations();
           final fakeUser = localRegs.firstWhere(
             (user) => user['email'] == username && user['password'] == password,
@@ -49,7 +51,6 @@ class LoginController extends GetxController {
           );
 
           if (fakeUser != null) {
-            // If the user just registered locally, prevent login and show the 48-hour pending message.
             CustomSnackbar.error(message: 'Your account is currently under verification. Please try again after 48 hours.');
             isLoading.value = false;
             return;

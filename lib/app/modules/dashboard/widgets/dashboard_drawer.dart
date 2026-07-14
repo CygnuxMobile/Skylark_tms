@@ -102,7 +102,7 @@ class DashboardDrawer extends GetView<DashboardController> {
                 ),
                 Obx(() {
                   final firebaseConfig = Get.find<skylark_firebase.FirebaseConfigService>();
-                  final isEnabled = firebaseConfig.isDeleteEnabled.value;
+                  final isEnabled = firebaseConfig.isRegisterEnabled.value;
                   if (!GetPlatform.isIOS || !isEnabled) {
                     return const SizedBox.shrink();
                   }
