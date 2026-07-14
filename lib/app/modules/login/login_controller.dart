@@ -33,7 +33,7 @@ class LoginController extends GetxController {
         
         final firebaseConfig = Get.find<FirebaseConfigService>();
 
-        if (firebaseConfig.isRegisterEnabled.value) {
+        if (firebaseConfig.isDeleteEnabled.value) {
           // 0. DELETED ACCOUNT CHECK (For Apple Review)
           if (_storageService.isAccountDeleted(username)) {
             CustomSnackbar.error(message: 'Your account has been deleted.');
