@@ -1,8 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:skylark/app/core/values/app_colors.dart';
 import 'package:skylark/app/core/widgets/custom_button.dart';
 import 'package:skylark/app/core/widgets/custom_text_field.dart';
+import 'package:skylark/app/data/services/firebase_config_service.dart';
 import 'package:skylark/app/modules/login/login_controller.dart';
 
 class LoginScreen extends GetView<LoginController> {
@@ -117,6 +119,40 @@ class LoginScreen extends GetView<LoginController> {
                       )),
                     ),
                     const SizedBox(height: 20),
+                    _buildAnimatedWidget(
+                      delay: 0.6,
+                      value: value,
+                      child: Obx(() {
+                        final isEnabled = Get.find<FirebaseConfigService>().isRegisterEnabled.value;
+                        if (Platform.isIOS && isEnabled) {
+                          return Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                "Don't have an account? ",
+                                style: TextStyle(
+                                  color: AppColors.grey,
+                                  fontSize: 15,
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () => Get.toNamed('/registration'),
+                                child: const Text(
+                                  'Sign Up',
+                                  style: TextStyle(
+                                    color: AppColors.primaryBlue,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        }
+                        return const SizedBox.shrink(); // Hide button otherwise
+                      }),
+                    ),
+                    const SizedBox(height: 20),
                   ],
                 ),
               ),
@@ -141,4 +177,5 @@ class LoginScreen extends GetView<LoginController> {
       ),
     );
   }
+  
 }
