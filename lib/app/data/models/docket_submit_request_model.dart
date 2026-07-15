@@ -1,8 +1,9 @@
 class DocketSubmitRequestModel {
   Docket? docket;
   List<Invoices>? invoices;
+  String? baseusername;
 
-  DocketSubmitRequestModel({this.docket, this.invoices});
+  DocketSubmitRequestModel({this.docket, this.invoices, this.baseusername});
 
   DocketSubmitRequestModel.fromJson(Map<String, dynamic> json) {
     docket = json['docket'] != null ? Docket.fromJson(json['docket']) : null;
@@ -12,6 +13,7 @@ class DocketSubmitRequestModel {
         invoices!.add(Invoices.fromJson(v));
       });
     }
+    baseusername = json['baseusername'];
   }
 
   Map<String, dynamic> toJson() {
@@ -22,6 +24,7 @@ class DocketSubmitRequestModel {
     if (invoices != null) {
       data['invoices'] = invoices!.map((v) => v.toJson()).toList();
     }
+    data['baseusername'] = baseusername;
     return data;
   }
 }
@@ -177,7 +180,7 @@ class Docket {
     orderID = json['orderID'];
     invAmt = json['invAmt'];
     invNo = json['invNo'];
-    companyCode = json['CompanyCode'];
+    companyCode = json['companyCode'];
   }
 
   Map<String, dynamic> toJson() {
@@ -229,7 +232,7 @@ class Docket {
     data['orderID'] = orderID;
     data['invAmt'] = invAmt;
     data['invNo'] = invNo;
-    data['CompanyCode'] = companyCode;
+    data['companyCode'] = companyCode;
     data['baseusername'] = baseusername;
     return data;
   }

@@ -102,7 +102,7 @@ class BookingController extends GetxController {
   var isLoadingBooking = false.obs;
   var freightErrorMessage = ''.obs;
   var isFieldsReadOnly = false.obs;
-  var showDimensions = false.obs;
+  var showDimensions = true.obs;
   var freightData = <String, dynamic>{}.obs;
 
   var isEwayBillRequired = false.obs;
@@ -111,6 +111,7 @@ class BookingController extends GetxController {
   var isEwayBillWise = false.obs;
   var cnoteValidationMessage = "".obs;
   var isZeroFreightSubmit = false.obs;
+  var pkgsCount = 0.obs;
   var addedEwayBills = <String>[].obs;
   var addedEwayBillDetails = <Map<String, dynamic>>[].obs;
 
@@ -123,6 +124,10 @@ class BookingController extends GetxController {
     destPinController.addListener(_onPinChanged);
     invValueController.addListener(_onInvValueChanged);
     pkgsController.addListener(_validatePieceCount);
+    lengthController.addListener(_onDimensionFieldChanged);
+    breadthController.addListener(_onDimensionFieldChanged);
+    heightController.addListener(_onDimensionFieldChanged);
+    pieceController.addListener(_onDimensionFieldChanged);
 
     ever(selectedCustomer, (value) {
       if (value != null) {
@@ -166,6 +171,12 @@ class BookingController extends GetxController {
     fetchCustomers();
     fetchFromPincodes();
     fetchZeroFreightRule();
+
+    debounce(_dummyRx, (String val) {
+      if (val.isNotEmpty) {
+        validateDocketSeries(val);
+      }
+    }, time: 300.milliseconds);
   }
 
   Future<void> fetchZeroFreightRule() async {
@@ -383,13 +394,12 @@ class BookingController extends GetxController {
 
   void _onCnoteChanged() {
     final text = cnoteController.text.trim();
-    if (text.length >= 4) {
-      debounce(_dummyRx, (_) => validateDocketSeries(text), time: 500.milliseconds);
-      _dummyRx.value = text;
-    } else {
+    if (text.isEmpty) {
       isCnoteValid.value = true;
       cnoteValidationMessage.value = "";
+      isValidatingCnote.value = false;
     }
+    _dummyRx.value = text;
   }
 
   final _dummyRx = "".obs;
@@ -503,10 +513,20 @@ class BookingController extends GetxController {
               ewayBillExpiryController.text = details['eWayBillExpiredDate']?.toString() ?? '';
               ewayBillInvDateController.text = details['eWayBillInvoiceDate']?.toString() ?? '';
 
-              if (consignees.isNotEmpty && consigneeName.isNotEmpty) {
-                selectedConsignee.value = consignees.firstWhereOrNull(
-                        (c) => c.custName?.toLowerCase() == consigneeName.toLowerCase()
+              if (consigneeName.isNotEmpty) {
+                final match = consignees.firstWhereOrNull(
+                  (c) => c.custName?.toLowerCase() == consigneeName.toLowerCase()
                 );
+                if (match != null) {
+                  selectedConsignee.value = match;
+                  consigneeType.value = 'Master';
+                } else {
+                  consigneeType.value = 'Walk-In';
+                  walkInNameController.text = consigneeName;
+                  walkInAddressController.text = details['csgeaddr']?.toString() ?? details['csgeAddress']?.toString() ?? '';
+                  walkInCityController.text = details['csgecity']?.toString() ?? details['csgeCity']?.toString() ?? '';
+                  walkInPincodeController.text = destPin;
+                }
               }
             }
 
@@ -636,7 +656,35 @@ class BookingController extends GetxController {
   }
 
   void _validatePieceCount() {
-    // This can be used for UI warnings if needed
+    pkgsCount.value = int.tryParse(pkgsController.text) ?? 0;
+  }
+
+  void _onDimensionFieldChanged() {
+    final lText = lengthController.text.trim();
+    final bText = breadthController.text.trim();
+    final hText = heightController.text.trim();
+    final pText = pieceController.text.trim();
+
+    if (lText.isEmpty || bText.isEmpty || hText.isEmpty || pText.isEmpty) return;
+
+    final l = double.tryParse(lText) ?? 0;
+    final b = double.tryParse(bText) ?? 0;
+    final h = double.tryParse(hText) ?? 0;
+    final p = int.tryParse(pText) ?? 0;
+
+    final totalPkgs = pkgsCount.value;
+    if (totalPkgs == 0) return;
+
+    int currentPcs = 0;
+    for (var dim in dimensionsList) {
+      currentPcs += dim['pieces'] as int? ?? 0;
+    }
+
+    if (l > 0 && b > 0 && h > 0 && p > 0) {
+      if (currentPcs + p == totalPkgs) {
+        addDimension(l, b, h, p);
+      }
+    }
   }
 
   void _calculateCubicWeight() {
@@ -733,16 +781,24 @@ class BookingController extends GetxController {
         return;
       }
 
-      if (showDimensions.value && dimensionsList.isNotEmpty) {
-        final int totalPkgs = int.tryParse(pkgsController.text) ?? 0;
-        final int totalDimPieces = dimensionsList.fold(0, (sum, item) => sum + (item['pieces'] as int? ?? 0));
-        if (totalDimPieces != totalPkgs) {
-          CustomSnackbar.error(
-            title: 'Dimension Error',
-            message: 'Total pieces in dimensions ($totalDimPieces) must equal total PKGS ($totalPkgs)',
-          );
-          return;
-        }
+      if (dimensionsList.isEmpty) {
+        CustomSnackbar.error(
+          title: 'Dimension Error',
+          message: 'Please add at least one dimension entry',
+        );
+        showDimensions.value = true;
+        lengthFocus.requestFocus();
+        return;
+      }
+
+      final int totalPkgs = int.tryParse(pkgsController.text) ?? 0;
+      final int totalDimPieces = dimensionsList.fold(0, (sum, item) => sum + (item['pieces'] as int? ?? 0));
+      if (totalDimPieces != totalPkgs) {
+        CustomSnackbar.error(
+          title: 'Dimension Error',
+          message: 'Total pieces in dimensions ($totalDimPieces) must equal total PKGS ($totalPkgs)',
+        );
+        return;
       }
 
       if (ewayBillErrorMessage.value.isNotEmpty) {
@@ -781,9 +837,11 @@ class BookingController extends GetxController {
         walkInPincodeFocus.requestFocus();
       } else if (pkgsController.text.isEmpty) {
         pkgsFocus.requestFocus();
+      } else if (aWeightController.text.isEmpty) {
+        aWeightFocus.requestFocus();
       } else if (invNoController.text.isEmpty) {
         invNoFocus.requestFocus();
-      } else if (invValueController.text.isEmpty && !isZeroFreightSubmit.value) {
+      } else if (invValueController.text.isEmpty) {
         invValueFocus.requestFocus();
       }
     }
@@ -1092,9 +1150,9 @@ class BookingController extends GetxController {
         acTWT: double.tryParse(aWeightController.text) ?? 0,
         orderID: selectedCustomer.value?.contractId ?? "",
         invAmt: totalInvAmt.toString(),
+
         invNo: invNoController.text,
         companyCode: user?.baseCompanyCode ?? "",
-        baseusername: user?.userId
       );
 
       final int totalPkgs = int.tryParse(pkgsController.text) ?? 0;
@@ -1143,12 +1201,10 @@ class BookingController extends GetxController {
         double weight;
 
         if (isEwayBillWise.value && i < addedEwayBillDetails.length) {
-          // If E-way bill wise, prefer data from the corresponding E-way bill
           final billDetail = addedEwayBillDetails[i];
           pkgs = int.tryParse(billDetail['totalQty']?.toString() ?? '0') ?? 0;
           weight = double.tryParse(billDetail['totalWeight']?.toString() ?? '0') ?? 0;
         } else {
-          // Otherwise use pieces from LBH entry or distribute total
           pkgs = d["pieces"] ?? (totalPkgs / loopCount).floor();
           weight = totalWeight / loopCount;
         }
@@ -1175,6 +1231,7 @@ class BookingController extends GetxController {
       final body = DocketSubmitRequestModel(
         docket: docket,
         invoices: invoices,
+        baseusername: user?.userId,
       );
 
       final response = await _apiService.post(
