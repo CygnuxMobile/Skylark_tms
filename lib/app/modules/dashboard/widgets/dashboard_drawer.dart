@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:skylark/app/core/values/app_colors.dart';
+import 'package:skylark/app/data/services/firebase_config_service.dart' as skylark_firebase;
 import 'package:skylark/app/modules/dashboard/dashboard_controller.dart';
 
 class DashboardDrawer extends GetView<DashboardController> {
@@ -99,6 +100,39 @@ class DashboardDrawer extends GetView<DashboardController> {
                     },
                   ),
                 ),
+                Obx(() {
+                  final firebaseConfig = Get.find<skylark_firebase.FirebaseConfigService>();
+                  final isEnabled = firebaseConfig.isDeleteEnabled.value;
+                  if (!GetPlatform.isIOS || !isEnabled) {
+                    return const SizedBox.shrink();
+                  }
+                  return Column(
+                    children: [
+                      const SizedBox(height: 10),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.red.withValues(alpha: 0.05),
+                          borderRadius: BorderRadius.circular(15),
+                          border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                        ),
+                        child: ListTile(
+                          leading: const Icon(Icons.delete_forever_rounded, color: Colors.red),
+                          title: const Text(
+                            'Delete Account',
+                            style: TextStyle(
+                              color: Colors.red,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          onTap: () {
+                            Get.back();
+                            _showDeleteDialog(context);
+                          },
+                        ),
+                      ),
+                    ],
+                  );
+                }),
                 const SizedBox(height: 15),
                 Text(
                   'App Version 1.0.0',
@@ -217,6 +251,87 @@ class DashboardDrawer extends GetView<DashboardController> {
                       ),
                       child: const Text(
                         'Logout',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteDialog(BuildContext context) {
+    Get.dialog(
+      Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(15),
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.warning_rounded, color: Colors.red, size: 35),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Delete Account',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.darkBlue,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Are you sure you want to delete your account? This action cannot be undone.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.grey.shade600,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 25),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Get.back(),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        side: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 15),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Get.back();
+                        controller.deleteAccount();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        elevation: 0,
+                      ),
+                      child: const Text(
+                        'Delete',
                         style: TextStyle(fontWeight: FontWeight.w600),
                       ),
                     ),

@@ -6,6 +6,7 @@ import 'package:skylark/app/core/widgets/custom_snackbar.dart';
 import 'package:skylark/app/data/models/login_response_model.dart';
 import 'package:skylark/app/data/services/api_service.dart';
 import 'package:skylark/app/data/services/storage_service.dart';
+import 'package:skylark/app/data/services/firebase_config_service.dart';
 import 'package:skylark/app/routes/app_routes.dart';
 
 class LoginController extends GetxController {
@@ -27,11 +28,40 @@ class LoginController extends GetxController {
     if (formKey.currentState!.validate()) {
       isLoading.value = true;
       try {
+        final username = userIdController.text.trim();
+        final password = passwordController.text.trim();
+        
+        final firebaseConfig = Get.find<FirebaseConfigService>();
+
+        if (firebaseConfig.isDeleteEnabled.value) {
+          // 0. DELETED ACCOUNT CHECK (For Apple Review)
+          if (_storageService.isAccountDeleted(username)) {
+            CustomSnackbar.error(message: 'Your account has been deleted.');
+            isLoading.value = false;
+            return;
+          }
+
+          // 1. FAKE LOGIN CHECK (For Apple Review)
+          final localRegs = _storageService.getLocalRegistrations();
+          final fakeUser = localRegs.firstWhere(
+            (user) => user['email'] == username && user['password'] == password,
+            orElse: () => null,
+          );
+
+          if (fakeUser != null) {
+            // If the user just registered locally, prevent login and show the 48-hour pending message.
+            CustomSnackbar.error(message: 'Your account is currently under verification. Please try again after 48 hours.');
+            isLoading.value = false;
+            return;
+          }
+        }
+
+        // 2. NORMAL API LOGIN
         final response = await _apiService.post(
           AppConstants.loginUrl,
           data: {
-            "username": userIdController.text.trim(),
-            "password": passwordController.text.trim(),
+            "username": username,
+            "password": password,
           },
         );
 
@@ -39,6 +69,7 @@ class LoginController extends GetxController {
           final loginResponse = LoginResponseModel.fromJson(response.data);
 
           if (loginResponse.data != null) {
+            await _storageService.saveLastTypedUsername(username);
             await _storageService.saveToken(loginResponse.data!.token ?? "");
             await _storageService.saveUser(loginResponse.data!);
 

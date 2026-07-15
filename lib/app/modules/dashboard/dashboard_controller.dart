@@ -140,4 +140,15 @@ class DashboardController extends GetxController {
     await _storageService.clearStorage();
     Get.offAllNamed(AppRoutes.login);
   }
+
+  void deleteAccount() async {
+    final typedUsername = _storageService.getLastTypedUsername();
+    final userId = typedUsername ?? userData.value?.userId;
+    if (userId != null && userId.isNotEmpty) {
+      await _storageService.deleteAccount(userId);
+    }
+    await _storageService.clearStorage();
+    Get.offAllNamed(AppRoutes.login);
+    CustomSnackbar.success(message: 'Your account has been deleted successfully.');
+  }
 }

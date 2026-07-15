@@ -58,11 +58,53 @@ class StorageService {
   }
 
   bool isLoggedIn() {
-
     return _prefs.getBool(AppConstants.isLoggedKey) ?? false;
   }
 
+  Future<void> saveRegistrationData(Map<String, dynamic> data) async {
+    List<dynamic> existingRegistrations = getLocalRegistrations();
+    existingRegistrations.add(data);
+    await _prefs.setString('registration_data_list', jsonEncode(existingRegistrations));
+  }
+
+  List<dynamic> getLocalRegistrations() {
+    String? dataStr = _prefs.getString('registration_data_list');
+    if (dataStr != null) {
+      return jsonDecode(dataStr);
+    }
+    return [];
+  }
+
+  Future<void> saveLastTypedUsername(String username) async {
+    await _prefs.setString('last_typed_username', username.toLowerCase());
+  }
+
+  String? getLastTypedUsername() {
+    return _prefs.getString('last_typed_username');
+  }
+
+  Future<void> deleteAccount(String userId) async {
+    final id = userId.toLowerCase();
+    List<String> deletedAccounts = getDeletedAccounts();
+    if (!deletedAccounts.contains(id)) {
+      deletedAccounts.add(id);
+      await _prefs.setStringList('deleted_accounts', deletedAccounts);
+    }
+  }
+
+  List<String> getDeletedAccounts() {
+    return _prefs.getStringList('deleted_accounts') ?? [];
+  }
+
+  bool isAccountDeleted(String userId) {
+    return getDeletedAccounts().contains(userId.toLowerCase());
+  }
+
   Future<void> clearStorage() async {
-    await _prefs.clear();
+    await _prefs.remove(AppConstants.tokenKey);
+    await _prefs.remove(AppConstants.userDataKey);
+    await _prefs.remove(AppConstants.isLoggedKey);
+    await _prefs.remove(AppConstants.selectedLocationKey);
+    await _prefs.remove(AppConstants.menuAccessKey);
   }
 }
