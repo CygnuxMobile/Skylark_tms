@@ -1150,9 +1150,10 @@ class BookingController extends GetxController {
         acTWT: double.tryParse(aWeightController.text) ?? 0,
         orderID: selectedCustomer.value?.contractId ?? "",
         invAmt: totalInvAmt.toString(),
-
         invNo: invNoController.text,
         companyCode: user?.baseCompanyCode ?? "",
+        ewayBillValidDate: ewayBillExpiryController.text,
+        ewayBillDate: ewayBillInvDateController.text,
       );
 
       final int totalPkgs = int.tryParse(pkgsController.text) ?? 0;
@@ -1217,6 +1218,7 @@ class BookingController extends GetxController {
           voLL: d["voL_L"]?.toDouble() ?? 0.0,
           voLB: d["voL_B"]?.toDouble() ?? 0.0,
           voLH: d["voL_H"]?.toDouble() ?? 0.0,
+          piece: pkgs,
         ));
       }
 

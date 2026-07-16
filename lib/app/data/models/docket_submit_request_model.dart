@@ -79,6 +79,8 @@ class Docket {
   String? invNo;
   String? companyCode;
   String? baseusername;
+  String? ewayBillValidDate;
+  String? ewayBillDate;
 
   Docket({
     this.dockno,
@@ -130,6 +132,8 @@ class Docket {
     this.invNo,
     this.companyCode,
     this.baseusername,
+    this.ewayBillValidDate,
+    this.ewayBillDate,
   });
 
   Docket.fromJson(Map<String, dynamic> json) {
@@ -181,6 +185,8 @@ class Docket {
     invAmt = json['invAmt'];
     invNo = json['invNo'];
     companyCode = json['companyCode'];
+    ewayBillValidDate = json['eWayBillExpiredDate'];
+    ewayBillDate = json['eWayBillInvoiceDate'];
   }
 
   Map<String, dynamic> toJson() {
@@ -234,6 +240,8 @@ class Docket {
     data['invNo'] = invNo;
     data['companyCode'] = companyCode;
     data['baseusername'] = baseusername;
+    data['eWayBillExpiredDate'] = ewayBillValidDate;
+    data['eWayBillInvoiceDate'] = ewayBillDate;
     return data;
   }
 }
@@ -246,6 +254,7 @@ class Invoices {
   double? voLL;
   double? voLB;
   double? voLH;
+  int? piece;
 
   Invoices({
     this.invno,
@@ -255,6 +264,7 @@ class Invoices {
     this.voLL,
     this.voLB,
     this.voLH,
+    this.piece,
   });
 
   Invoices.fromJson(Map<String, dynamic> json) {
@@ -265,6 +275,7 @@ class Invoices {
     voLL = json['voL_L'];
     voLB = json['voL_B'];
     voLH = json['voL_H'];
+    piece = json['piece'];
   }
 
   Map<String, dynamic> toJson() {
@@ -276,6 +287,7 @@ class Invoices {
     data['voL_L'] = voLL;
     data['voL_B'] = voLB;
     data['voL_H'] = voLH;
+    data['piece'] = piece;
     return data;
   }
 }
