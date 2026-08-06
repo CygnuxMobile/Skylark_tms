@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:skylark/app/core/values/app_colors.dart';
 
 class CustomTextField extends StatelessWidget {
@@ -7,6 +8,7 @@ class CustomTextField extends StatelessWidget {
   final String? hintText;
   final bool obscureText;
   final TextInputType? keyboardType;
+  final List<TextInputFormatter>? inputFormatters;
   final Widget? prefixIcon;
   final Widget? suffixIcon;
   final String? Function(String?)? validator;
@@ -26,6 +28,7 @@ class CustomTextField extends StatelessWidget {
     this.hintText,
     this.obscureText = false,
     this.keyboardType,
+    this.inputFormatters,
     this.prefixIcon,
     this.suffixIcon,
     this.validator,
@@ -58,6 +61,7 @@ class CustomTextField extends StatelessWidget {
         focusNode: focusNode,
         obscureText: obscureText,
         keyboardType: keyboardType,
+        inputFormatters: inputFormatters,
         validator: validator,
         onChanged: onChanged,
         onFieldSubmitted: onFieldSubmitted,

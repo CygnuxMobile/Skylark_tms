@@ -111,6 +111,7 @@ class BookingController extends GetxController {
   var isEwayBillWise = false.obs;
   var cnoteValidationMessage = "".obs;
   var isZeroFreightSubmit = false.obs;
+  var isEwayBillPartyMatched = true.obs;
   var pkgsCount = 0.obs;
   var addedEwayBills = <String>[].obs;
   var addedEwayBillDetails = <Map<String, dynamic>>[].obs;
@@ -131,6 +132,31 @@ class BookingController extends GetxController {
 
     ever(selectedCustomer, (value) {
       if (value != null) {
+        // If there's an existing E-way bill, verify it matches the newly selected customer
+        if (addedEwayBillDetails.isNotEmpty) {
+          final ewayPartyCode = addedEwayBillDetails[0]['partyCode']?.toString() ??
+              addedEwayBillDetails[0]['csgncd']?.toString() ?? '';
+
+          if (ewayPartyCode.isNotEmpty && value.custCode != ewayPartyCode) {
+            // Mismatch found: Clear E-way bill data as it belongs to a different customer
+            addedEwayBills.clear();
+            addedEwayBillDetails.clear();
+            ewayBillController.clear();
+            isFieldsReadOnly.value = false;
+            ewayBillErrorMessage.value = "E-way bill removed: Does not match selected customer.";
+
+            CustomSnackbar.show(
+              title: 'E-way Bill Removed',
+              message: 'The E-way bill was cleared because it doesn\'t belong to ${value.custName}',
+              backgroundColor: Colors.orange,
+            );
+          }
+        }
+
+        isEwayBillPartyMatched.value = true;
+        if (ewayBillErrorMessage.value.contains('found in master list')) {
+          ewayBillErrorMessage.value = '';
+        }
         consignorController.text = "${value.custCode ?? ''} - ${value.custName ?? ''}";
         fetchTransportModes(value.custCode ?? '');
       } else {
@@ -143,6 +169,7 @@ class BookingController extends GetxController {
       if (!value) {
         addedEwayBills.clear();
         addedEwayBillDetails.clear();
+        isEwayBillPartyMatched.value = true;
         isFieldsReadOnly.value = false;
         invNoController.clear();
         invValueController.clear();
@@ -406,6 +433,9 @@ class BookingController extends GetxController {
 
   Future<void> validateDocketSeries(String docketNo) async {
     try {
+      final sanitizedDocketNo = docketNo.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
+      if (sanitizedDocketNo.isEmpty) return;
+
       isValidatingCnote.value = true;
       final storageService = Get.find<StorageService>();
       final user = storageService.getUser();
@@ -414,7 +444,7 @@ class BookingController extends GetxController {
       final response = await _apiService.get(
         AppConstants.validateDocketSeriesUrl,
         queryParameters: {
-          'DocketNo': docketNo,
+          'DocketNo': sanitizedDocketNo,
           'LocCode': location?.locCode ?? "",
           'UserId': user?.userId ?? "",
         },
@@ -484,27 +514,34 @@ class BookingController extends GetxController {
 
             // If it's the first E-way bill, set the basic details
             if (addedEwayBills.isEmpty) {
+              final ewayPartyCode = details['partyCode']?.toString() ?? details['csgncd']?.toString() ?? '';
+              final consignorName = details['csgnm']?.toString() ?? '';
+
+              if (customers.isNotEmpty) {
+                final match = customers.firstWhereOrNull(
+                        (c) => (ewayPartyCode.isNotEmpty && c.custCode == ewayPartyCode) ||
+                        (consignorName.isNotEmpty && c.custName?.toLowerCase() == consignorName.toLowerCase())
+                );
+                if (match != null) {
+                  selectedCustomer.value = match;
+                  isEwayBillPartyMatched.value = true;
+                } else {
+                  isEwayBillPartyMatched.value = false;
+                  ewayBillErrorMessage.value = 'Consignor "$consignorName" ($ewayPartyCode) not found in master list.';
+                }
+              }
+
               if (originPin.isNotEmpty) {
                 originPinController.text = originPin;
                 onOriginSelected(fromLocations.firstWhereOrNull((l) => l.pincode == originPin) ?? PincodeModel(pincode: originPin));
               }
-              
+
               if (destPin.isNotEmpty) {
                 destPinController.text = destPin;
                 onDestSelected(locations.firstWhereOrNull((l) => l.pincode == destPin) ?? PincodeModel(pincode: destPin));
               }
 
-              final consignorName = details['csgnm']?.toString() ?? '';
               consignorController.text = consignorName;
-              
-              if (customers.isNotEmpty && consignorName.isNotEmpty) {
-                final match = customers.firstWhereOrNull(
-                  (c) => c.custName?.toLowerCase() == consignorName.toLowerCase()
-                );
-                if (match != null) {
-                  selectedCustomer.value = match;
-                }
-              }
 
               final consigneeName = details['csgenm']?.toString() ?? '';
               consigneeController.text = consigneeName;
@@ -616,6 +653,7 @@ class BookingController extends GetxController {
     addedEwayBills.removeAt(index);
     addedEwayBillDetails.removeAt(index);
     if (addedEwayBills.isEmpty) {
+      isEwayBillPartyMatched.value = true;
       isFieldsReadOnly.value = false;
       invValueController.text = '';
       pkgsController.text = '';
@@ -755,6 +793,25 @@ class BookingController extends GetxController {
   }
 
   void submitBooking() async {
+    // Check E-way bill error first and block submission
+    if (ewayBillErrorMessage.value.isNotEmpty) {
+      ewayBillFocus.requestFocus();
+      CustomSnackbar.error(
+        title: 'E-way Bill Error',
+        message: ewayBillErrorMessage.value,
+      );
+      return;
+    }
+
+    if (!isEwayBillPartyMatched.value) {
+      CustomSnackbar.error(
+        title: 'Party Error',
+        message: 'The customer from the E-way bill was not found in the master list. Please select a valid customer.',
+      );
+      customerFocus.requestFocus();
+      return;
+    }
+
     if (formKey.currentState!.validate()) {
       if (isEwayBillWise.value && addedEwayBills.isNotEmpty) {
         final valCount = invValueController.text.split(',').where((s) => s.trim().isNotEmpty).length;
@@ -797,15 +854,6 @@ class BookingController extends GetxController {
         CustomSnackbar.error(
           title: 'Dimension Error',
           message: 'Total pieces in dimensions ($totalDimPieces) must equal total PKGS ($totalPkgs)',
-        );
-        return;
-      }
-
-      if (ewayBillErrorMessage.value.isNotEmpty) {
-        ewayBillFocus.requestFocus();
-        CustomSnackbar.error(
-          title: 'E-way Bill Error',
-          message: ewayBillErrorMessage.value,
         );
         return;
       }
@@ -1038,9 +1086,9 @@ class BookingController extends GetxController {
         flagProceed: "P",
         depth: "CLRMSP",
         payBase: "P02",
-        fromCity: origin?.fromCity ?? "",
-        fromstate: origin?.orgNstnm ?? "",
-        tostate: dest?.desTstnm ?? "",
+        fromCity: origin.fromCity ?? "",
+        fromstate: origin.orgNstnm ?? "",
+        tostate: dest.desTstnm ?? "",
         toCity: dest?.toCity ?? "",
         orgnLoc: origin?.orgncd ?? "",
         delLoc: dest?.destcd ?? "",
@@ -1095,6 +1143,15 @@ class BookingController extends GetxController {
 
       final origin = selectedOriginDetails.value;
       final dest = selectedDestDetails.value;
+
+      if ((dest?.destcd ?? "").isEmpty) {
+        isLoadingBooking.value = false;
+        CustomSnackbar.error(
+          title: 'Location Error',
+          message: 'Destination location code is missing. Please select a valid destination pincode.',
+        );
+        return;
+      }
 
       double totalInvAmt = 0;
       if (invValueController.text.contains(',')) {
@@ -1152,8 +1209,8 @@ class BookingController extends GetxController {
         invAmt: totalInvAmt.toString(),
         invNo: invNoController.text,
         companyCode: user?.baseCompanyCode ?? "",
-        ewayBillValidDate: ewayBillExpiryController.text,
-        ewayBillDate: ewayBillInvDateController.text,
+        ewayBillValidDate: ewayBillExpiryController.text.isEmpty ? "1990-01-01T00:00:00" : ewayBillExpiryController.text,
+        ewayBillDate: ewayBillInvDateController.text.isEmpty ? "1990-01-01T00:00:00" : ewayBillInvDateController.text,
       );
 
       final int totalPkgs = int.tryParse(pkgsController.text) ?? 0;
@@ -1194,21 +1251,11 @@ class BookingController extends GetxController {
             ? sourceList[i] 
             : (sourceList.isNotEmpty ? sourceList[0] : {"voL_L": 0, "voL_B": 0, "voL_H": 0});
 
-        // Distribution of invoice numbers and amounts
         String invNo = i < invNos.length ? invNos[i] : "";
         double invAmt = i < invAmts.length ? invAmts[i] : 0.0;
 
-        int pkgs;
-        double weight;
-
-        if (isEwayBillWise.value && i < addedEwayBillDetails.length) {
-          final billDetail = addedEwayBillDetails[i];
-          pkgs = int.tryParse(billDetail['totalQty']?.toString() ?? '0') ?? 0;
-          weight = double.tryParse(billDetail['totalWeight']?.toString() ?? '0') ?? 0;
-        } else {
-          pkgs = d["pieces"] ?? (totalPkgs / loopCount).floor();
-          weight = totalWeight / loopCount;
-        }
+        int pkgs = d["pieces"] ?? (totalPkgs / loopCount).floor();
+        double weight = totalWeight / loopCount;
 
         invoices.add(Invoices(
           invno: invNo,

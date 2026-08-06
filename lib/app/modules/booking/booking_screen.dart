@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:flutter/services.dart';
 import 'package:skylark/app/core/values/app_colors.dart';
 import 'package:skylark/app/core/widgets/custom_button.dart';
 import 'package:skylark/app/core/widgets/custom_text_field.dart';
@@ -62,6 +63,8 @@ class BookingScreen extends GetView<BookingController> {
                         controller: controller.cnoteController,
                         focusNode: controller.cnoteFocus,
                         hintText: 'Enter Cnote Number',
+                        keyboardType: TextInputType.text,
+                        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9]'))],
                         isLoading: controller.isValidatingCnote.value,
                         prefixIcon: const Icon(Icons.numbers_rounded, color: AppColors.primaryBlue, size: 20),
                         suffixIcon: controller.cnoteController.text.length >= 4
@@ -106,6 +109,12 @@ class BookingScreen extends GetView<BookingController> {
                                 keyboardType: TextInputType.number,
                                 maxLength: 12,
                                 prefixIcon: const Icon(Icons.receipt_long_rounded, color: AppColors.primaryBlue, size: 20),
+                                validator: (value) {
+                                  if (controller.ewayBillErrorMessage.value.isNotEmpty) {
+                                    return controller.ewayBillErrorMessage.value;
+                                  }
+                                  return null;
+                                },
                               ),
                             ),
                             const SizedBox(width: 10),
@@ -132,6 +141,15 @@ class BookingScreen extends GetView<BookingController> {
                                   )),
                           ],
                         ),
+                        Obx(() => controller.ewayBillErrorMessage.value.isNotEmpty
+                            ? Padding(
+                                padding: const EdgeInsets.only(top: 4, left: 4),
+                                child: Text(
+                                  controller.ewayBillErrorMessage.value,
+                                  style: const TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.w500),
+                                ),
+                              )
+                            : const SizedBox.shrink()),
                         const SizedBox(height: 16),
                         Obx(() => Column(
                               children: controller.addedEwayBills.map((bill) {
@@ -204,9 +222,21 @@ class BookingScreen extends GetView<BookingController> {
                                 value.length != 12) {
                               return 'Eway Bill must be 12 digits';
                             }
+                            if (controller.ewayBillErrorMessage.value.isNotEmpty) {
+                              return controller.ewayBillErrorMessage.value;
+                            }
                             return null;
                           },
                         ),
+                        Obx(() => controller.ewayBillErrorMessage.value.isNotEmpty
+                            ? Padding(
+                                padding: const EdgeInsets.only(top: 4, left: 4),
+                                child: Text(
+                                  controller.ewayBillErrorMessage.value,
+                                  style: const TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.w500),
+                                ),
+                              )
+                            : const SizedBox.shrink()),
                       ],
                     ),
                   ),
