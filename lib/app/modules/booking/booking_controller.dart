@@ -159,6 +159,11 @@ class BookingController extends GetxController {
         }
         consignorController.text = "${value.custCode ?? ''} - ${value.custName ?? ''}";
         fetchTransportModes(value.custCode ?? '');
+        final destPin = destPinController.text.trim();
+        if (destPin.length == 6) {
+          _lastFetchedDestPin = "";
+          fetchToPincodeDetails(destPin);
+        }
       } else {
         transportModes.clear();
         selectedTransportMode.value = null;
@@ -793,6 +798,9 @@ class BookingController extends GetxController {
   }
 
   void submitBooking() async {
+    // Prevent multiple submissions / double tap
+    if (isLoadingBooking.value || isLoadingFreight.value) return;
+
     // Check E-way bill error first and block submission
     if (ewayBillErrorMessage.value.isNotEmpty) {
       ewayBillFocus.requestFocus();
@@ -858,17 +866,24 @@ class BookingController extends GetxController {
         return;
       }
 
-      if (consigneeType.value == 'Walk-In') {
-        freightErrorMessage.value = '';
-        freightData.clear();
-        await docketSubmit();
-      } else {
-        await fetchContractFreight();
-        if (freightErrorMessage.value.isNotEmpty) {
-          invNoFocus.requestFocus();
-        } else {
+      try {
+        isLoadingBooking.value = true;
+        if (consigneeType.value == 'Walk-In') {
+          freightErrorMessage.value = '';
+          freightData.clear();
           await docketSubmit();
+        } else {
+          await fetchContractFreight();
+          if (freightErrorMessage.value.isNotEmpty) {
+            invNoFocus.requestFocus();
+          } else {
+            await docketSubmit();
+          }
         }
+      } catch (e) {
+        print('Error during submitBooking: $e');
+      } finally {
+        isLoadingBooking.value = false;
       }
     } else {
       if (selectedCustomer.value == null) {
@@ -1037,9 +1052,12 @@ class BookingController extends GetxController {
   }
 
   Future<void> fetchToPincodeDetails(String pincode) async {
-    if (pincode.length != 6 || pincode == _lastFetchedDestPin) return;
+    if (pincode.length != 6 || (pincode == _lastFetchedDestPin && selectedDestDetails.value != null)) return;
     try {
-      final customerCode = selectedCustomer.value?.custCode ?? '';
+      final customerCode = (selectedCustomer.value?.custCode != null &&
+              selectedCustomer.value!.custCode!.trim().isNotEmpty)
+          ? selectedCustomer.value!.custCode!.trim()
+          : '8888';
 
       final response = await _apiService.get(
         AppConstants.getToPincodeDetailsUrl,
@@ -1142,7 +1160,12 @@ class BookingController extends GetxController {
       final locCode = location?.locCode ?? '';
 
       final origin = selectedOriginDetails.value;
-      final dest = selectedDestDetails.value;
+      var dest = selectedDestDetails.value;
+
+      if ((dest?.destcd ?? "").isEmpty && destPinController.text.trim().length == 6) {
+        await fetchToPincodeDetails(destPinController.text.trim());
+        dest = selectedDestDetails.value;
+      }
 
       if ((dest?.destcd ?? "").isEmpty) {
         isLoadingBooking.value = false;

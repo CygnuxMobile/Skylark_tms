@@ -14,25 +14,34 @@ class BookingScreen extends GetView<BookingController> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FD),
-      appBar: AppBar(
-        backgroundColor: AppColors.primaryBlue,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: AppColors.white, size: 20),
-          onPressed: () => Get.back(),
-        ),
-        title: const Text(
-          'Booking Screen',
-          style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 18, letterSpacing: 0.5),
-        ),
-        centerTitle: true,
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-          child: Form(
+    return Obx(() {
+      final isSubmitting = controller.isLoadingBooking.value || controller.isLoadingFreight.value;
+      return PopScope(
+        canPop: !isSubmitting,
+        child: Scaffold(
+          backgroundColor: const Color(0xFFF8F9FD),
+          appBar: AppBar(
+            backgroundColor: AppColors.primaryBlue,
+            elevation: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new, color: AppColors.white, size: 20),
+              onPressed: () {
+                if (isSubmitting) return;
+                Get.back();
+              },
+            ),
+            title: const Text(
+              'Booking Screen',
+              style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 18, letterSpacing: 0.5),
+            ),
+            centerTitle: true,
+          ),
+          body: SafeArea(
+            child: AbsorbPointer(
+              absorbing: isSubmitting,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+                child: Form(
             key: controller.formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -587,17 +596,21 @@ class BookingScreen extends GetView<BookingController> {
 
                 const SizedBox(height: 32),
 
-                Obx(() => CustomButton(
-                      text: 'SUBMIT BOOKING',
-                      isLoading: controller.isLoadingBooking.value,
-                      onPressed: () => controller.submitBooking())),
+                CustomButton(
+                  text: 'SUBMIT BOOKING',
+                  isLoading: isSubmitting,
+                  onPressed: () => controller.submitBooking(),
+                ),
                 const SizedBox(height: 40),
               ],
             ),
           ),
         ),
       ),
-    );
+    ),
+  ),
+);
+    });
   }
 
   Widget _buildFieldLabel(String label) {
