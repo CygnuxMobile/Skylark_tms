@@ -30,6 +30,8 @@ class AppConstants {
   static const String getConsigneeUrl = 'Operation/GetConsignee';
   static const String validateDocketSeriesUrl = 'Operation/ValidateDocketSeries';
   static const String docketSubmitUrl = 'Operation/DocketSubmit';
+  static const String downloadDocketPdfUrl = 'Operation/DownloadDocketPdf';
+  static const String lrBarcodePdfUrl = 'Operation/LRBarcodePdf';
 
   // ==========================================
   // POD UPLOAD MODULE
@@ -52,6 +54,7 @@ class AppConstants {
   static const String getTripsheetNoUrl = 'Operation/GetTripsheetNo';
   static const String getAvailableDocketUrl = 'Operation/AvalabledocketinPRSDRS';
   static const String preparePrsUrl = 'Operation/PreparePRS';
+  static const String downloadPrsPdfUrl = 'Operation/DownloadPRSPdf';
   static const String prepareDrsUrl = 'Operation/PrepareDRS';
   static const String prsArrivalUrl = 'Operation/PRSArrival';
   static const String thcArrivalsListUrl = 'Operation/THCArrivalsList';

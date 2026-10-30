@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:skylark/app/data/models/location_model.dart';
 import 'package:skylark/app/data/models/login_response_model.dart';
 import 'package:skylark/app/data/models/prs_request_model.dart';
@@ -8,6 +9,7 @@ import 'package:skylark/app/data/services/api_service.dart';
 import 'package:skylark/app/data/services/storage_service.dart';
 
 import 'package:skylark/app/core/values/app_colors.dart';
+import 'package:skylark/app/core/widgets/custom_snackbar.dart';
 import '../../core/values/app_constants.dart';
 
 class PrsController extends GetxController {
@@ -523,7 +525,40 @@ class PrsController extends GetxController {
     }
   }
 
+  final RxBool isDownloadingPdf = false.obs;
+
+  Future<void> downloadPrsPdf(String prsNo) async {
+    try {
+      isDownloadingPdf.value = true;
+      final downloadUrl =
+          '${AppConstants.baseUrl}${AppConstants.downloadPrsPdfUrl}?PRSNo=${Uri.encodeComponent(prsNo)}';
+
+      final uri = Uri.parse(downloadUrl);
+
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+
+      if (!launched) {
+        CustomSnackbar.error(
+          title: "Download Failed",
+          message: "Could not open browser to download PDF",
+        );
+      }
+    } catch (e) {
+      debugPrint("Error downloading PRS PDF: $e");
+      CustomSnackbar.error(
+        title: "Download Error",
+        message: "Failed to download PRS PDF",
+      );
+    } finally {
+      isDownloadingPdf.value = false;
+    }
+  }
+
   void _showSuccessDialog(String prsNo) {
+    isDownloadingPdf.value = false;
     Get.dialog(
       Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -574,6 +609,45 @@ class PrsController extends GetxController {
                 ),
               ),
               const SizedBox(height: 24),
+              Obx(() => SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: isDownloadingPdf.value
+                      ? null
+                      : () => downloadPrsPdf(prsNo),
+                  icon: isDownloadingPdf.value
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.primaryBlue,
+                          ),
+                        )
+                      : const Icon(
+                          Icons.picture_as_pdf_rounded,
+                          color: Colors.redAccent,
+                          size: 22,
+                        ),
+                  label: Text(
+                    isDownloadingPdf.value ? 'DOWNLOADING...' : 'DOWNLOAD PDF',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                      color: AppColors.primaryBlue,
+                      fontSize: 14,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    side: const BorderSide(color: AppColors.primaryBlue, width: 1.5),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              )),
+              const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(

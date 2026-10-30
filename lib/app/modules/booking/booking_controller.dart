@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:dio/dio.dart' as dio;
+import 'package:url_launcher/url_launcher.dart';
 import 'package:skylark/app/core/values/app_constants.dart';
 import 'package:skylark/app/core/widgets/custom_snackbar.dart';
 import 'package:skylark/app/data/models/customer_model.dart';
@@ -826,12 +827,12 @@ class BookingController extends GetxController {
         final noCount = invNoController.text.split(',').where((s) => s.trim().isNotEmpty).length;
         
         if (valCount != addedEwayBills.length || noCount != addedEwayBills.length) {
-          Get.snackbar(
-            "Warning", 
-            "The number of Invoice Values/Numbers doesn't match the number of E-way bills (${addedEwayBills.length})",
+          CustomSnackbar.show(
+            title: "Warning", 
+            message: "The number of Invoice Values/Numbers doesn't match the number of E-way bills (${addedEwayBills.length})",
             backgroundColor: Colors.orange,
             colorText: Colors.white,
-            snackPosition: SnackPosition.BOTTOM
+            snackPosition: SnackPosition.BOTTOM,
           );
           return;
         }
@@ -1176,13 +1177,6 @@ class BookingController extends GetxController {
         return;
       }
 
-      double totalInvAmt = 0;
-      if (invValueController.text.contains(',')) {
-        totalInvAmt = invValueController.text.split(',').map((e) => double.tryParse(e.trim()) ?? 0.0).fold(0, (a, b) => a + b);
-      } else {
-        totalInvAmt = double.tryParse(invValueController.text) ?? 0.0;
-      }
-
       final docket = Docket(
         dockno: cnoteController.text,
         dockdt: DateTime.now().toIso8601String(),
@@ -1229,7 +1223,7 @@ class BookingController extends GetxController {
         noOfPkgs: int.tryParse(pkgsController.text) ?? 0,
         acTWT: double.tryParse(aWeightController.text) ?? 0,
         orderID: selectedCustomer.value?.contractId ?? "",
-        invAmt: totalInvAmt.toString(),
+        invAmt: invValueController.text,
         invNo: invNoController.text,
         companyCode: user?.baseCompanyCode ?? "",
         ewayBillValidDate: ewayBillExpiryController.text.isEmpty ? "1990-01-01T00:00:00" : ewayBillExpiryController.text,
@@ -1251,34 +1245,29 @@ class BookingController extends GetxController {
             ]
           : dimensionsList;
 
-      final int count = sourceList.length;
-      
       List<String> invNos = fullInvNoString.split(',').map((e) => e.trim()).toList();
       List<double> invAmts = fullInvAmtString.split(',').map((e) => double.tryParse(e.trim()) ?? 0.0).toList();
 
       final List<Invoices> invoices = [];
       
       // Determine the number of invoice entries to send.
-      // Driven by the maximum of Dimensions, E-way bills, or Invoice Numbers.
+      // Driven strictly by the dimensions list entered by the user.
+      // If user enters 1 dimension -> 1 item in list. If 2 dimensions -> 2 items in list.
       int loopCount = sourceList.length;
-      if (isEwayBillWise.value && addedEwayBills.length > loopCount) {
-        loopCount = addedEwayBills.length;
-      }
-      if (invNos.length > loopCount) {
-        loopCount = invNos.length;
-      }
 
       for (int i = 0; i < loopCount; i++) {
         // Get dimension data for this entry
-        final Map<String, dynamic> d = i < sourceList.length 
-            ? sourceList[i] 
-            : (sourceList.isNotEmpty ? sourceList[0] : {"voL_L": 0, "voL_B": 0, "voL_H": 0});
+        final Map<String, dynamic> d = sourceList[i];
 
         String invNo = i < invNos.length ? invNos[i] : "";
         double invAmt = i < invAmts.length ? invAmts[i] : 0.0;
 
-        int pkgs = d["pieces"] ?? (totalPkgs / loopCount).floor();
-        double weight = totalWeight / loopCount;
+        int pkgs = (d["pieces"] is int)
+            ? d["pieces"] as int
+            : (int.tryParse(d["pieces"]?.toString() ?? "") ?? (totalPkgs > 0 ? (totalPkgs / loopCount).floor() : 0));
+        double weight = totalPkgs > 0 && pkgs > 0
+            ? (totalWeight * pkgs / totalPkgs)
+            : (totalWeight / loopCount);
 
         invoices.add(Invoices(
           invno: invNo,
@@ -1334,7 +1323,78 @@ class BookingController extends GetxController {
     }
   }
 
+  final RxBool isDownloadingPdf = false.obs;
+  final RxBool isDownloadingBarcode = false.obs;
+
+  Future<void> downloadDocketPdf(String dockNo) async {
+    try {
+      isDownloadingPdf.value = true;
+      final storageService = Get.find<StorageService>();
+      final user = storageService.getUser();
+      final companyCode = (user?.baseCompanyCode != null && user!.baseCompanyCode!.trim().isNotEmpty)
+          ? user.baseCompanyCode!.trim()
+          : "c003";
+
+      final downloadUrl =
+          '${AppConstants.baseUrl}${AppConstants.downloadDocketPdfUrl}?docketNo=${Uri.encodeComponent(dockNo)}&companyCode=${Uri.encodeComponent(companyCode)}';
+
+      final uri = Uri.parse(downloadUrl);
+
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+
+      if (!launched) {
+        CustomSnackbar.error(
+          title: "Download Failed",
+          message: "Could not open browser to download PDF",
+        );
+      }
+    } catch (e) {
+      debugPrint("Error downloading docket PDF: $e");
+      CustomSnackbar.error(
+        title: "Download Error",
+        message: "Failed to download Docket PDF",
+      );
+    } finally {
+      isDownloadingPdf.value = false;
+    }
+  }
+
+  Future<void> downloadLrBarcodePdf(String dockNo) async {
+    try {
+      isDownloadingBarcode.value = true;
+      final downloadUrl =
+          '${AppConstants.baseUrl}${AppConstants.lrBarcodePdfUrl}?DockNo=${Uri.encodeComponent(dockNo)}';
+
+      final uri = Uri.parse(downloadUrl);
+
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+
+      if (!launched) {
+        CustomSnackbar.error(
+          title: "Download Failed",
+          message: "Could not open browser to download Barcode PDF",
+        );
+      }
+    } catch (e) {
+      debugPrint("Error downloading LR Barcode PDF: $e");
+      CustomSnackbar.error(
+        title: "Download Error",
+        message: "Failed to download Barcode PDF",
+      );
+    } finally {
+      isDownloadingBarcode.value = false;
+    }
+  }
+
   void _showSuccessDialog(String dockNo) {
+    isDownloadingPdf.value = false;
+    isDownloadingBarcode.value = false;
     Get.dialog(
       Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -1403,6 +1463,84 @@ class BookingController extends GetxController {
                 ),
               ),
               const SizedBox(height: 24),
+              Obx(() => SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: isDownloadingPdf.value
+                      ? null
+                      : () => downloadDocketPdf(dockNo),
+                  icon: isDownloadingPdf.value
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.primaryBlue,
+                          ),
+                        )
+                      : const Icon(
+                          Icons.picture_as_pdf_rounded,
+                          color: Colors.redAccent,
+                          size: 22,
+                        ),
+                  label: Text(
+                    isDownloadingPdf.value ? 'DOWNLOADING...' : 'DOWNLOAD PDF',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                      color: AppColors.primaryBlue,
+                      fontSize: 14,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    side: const BorderSide(color: AppColors.primaryBlue, width: 1.5),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              )),
+              const SizedBox(height: 10),
+              Obx(() => SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: isDownloadingBarcode.value
+                      ? null
+                      : () => downloadLrBarcodePdf(dockNo),
+                  icon: isDownloadingBarcode.value
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.primaryBlue,
+                          ),
+                        )
+                      : const Icon(
+                          Icons.qr_code_2_rounded,
+                          color: Colors.blueAccent,
+                          size: 22,
+                        ),
+                  label: Text(
+                    isDownloadingBarcode.value ? 'DOWNLOADING...' : 'DOWNLOAD BARCODE',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                      color: AppColors.primaryBlue,
+                      fontSize: 14,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    side: const BorderSide(color: AppColors.primaryBlue, width: 1.5),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              )),
+              const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(

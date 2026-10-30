@@ -10,15 +10,50 @@ class CustomSnackbar {
     Color? colorText,
     SnackPosition snackPosition = SnackPosition.TOP,
   }) {
-    Get.snackbar(
-      title,
-      message,
-      snackPosition: snackPosition,
-      backgroundColor: backgroundColor ?? AppColors.secondaryGreen,
-      colorText: colorText ?? AppColors.white,
-      margin: const EdgeInsets.all(15),
-      duration: const Duration(seconds: 3),
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final context = Get.context;
+      if (context != null) {
+        try {
+          final messenger = ScaffoldMessenger.maybeOf(context);
+          if (messenger != null) {
+            messenger.hideCurrentSnackBar();
+            messenger.showSnackBar(
+              SnackBar(
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (title.isNotEmpty)
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: colorText ?? AppColors.white,
+                        ),
+                      ),
+                    Text(
+                      message,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: colorText ?? AppColors.white,
+                      ),
+                    ),
+                  ],
+                ),
+                backgroundColor: backgroundColor ?? AppColors.secondaryGreen,
+                behavior: SnackBarBehavior.floating,
+                margin: const EdgeInsets.all(15),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          }
+        } catch (e) {
+          debugPrint("Snackbar error: $e");
+        }
+      }
+    });
   }
 
   static void success({required String message, String title = 'Success'}) {
